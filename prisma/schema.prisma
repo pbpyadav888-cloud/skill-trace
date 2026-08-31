@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id               String              @id @default(cuid())
+  email            String              @unique
+  password         String
+  name             String
+  role             String              // "CANDIDATE" | "INSTITUTION" | "EMPLOYER" | "ADMIN"
+  profileCompleted Boolean             @default(false)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  candidateProfile   CandidateProfile?
+  institutionProfile InstitutionProfile?
+  employerProfile    EmployerProfile?
+  verifications      PlacementVerification[]
+  auditLogs          AuditReport[]
+}
+
+model CandidateProfile {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preWage          Float     @default(0)
+  currentWage      Float     @default(0)
+  employmentStatus String    @default("UNEMPLOYED") // "UNEMPLOYED" | "EMPLOYED" | "FREELANCE" | "UNDEREMPLOYED"
+  timeToHireDays   Int?
+  educationLevel   String?
+  graduationDate   DateTime?
+  currentCompany   String?
+  currentJobTitle  String?
+  bio              String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  skills           CandidateSkill[]
+  enrollments      CohortEnrollment[]
+  outcomes         EmploymentOutcome[]
+}
+
+model InstitutionProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgName         String
+  accreditationId String
+  sectorFocus     String?
+  website         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  cohorts         ProgramCohort[]
+}
+
+model EmployerProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  industry    String
+  companySize String?
+  website     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  jobs        JobRequirement[]
+}
+
+model ProgramCohort {
+  id             String    @id @default(cuid())
+  institutionId  String
+  institution    InstitutionProfile @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  title          String
+  cohortCode     String    @unique
+  description    String?
+  startDate      DateTime
+  endDate        DateTime
+  costPerTrainee Float     @default(0)
+  capacity       Int       @default(30)
+  status         String    @default("ACTIVE") // "UPCOMING" | "ACTIVE" | "COMPLETED"
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  enrollments    CohortEnrollment[]
+  outcomes       EmploymentOutcome[]
+  skills         CohortSkill[]
+}
+
+model CohortEnrollment {
+  id          String           @id @default(cuid())
+  cohortId    String
+  cohort      ProgramCohort    @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  status      String           @default("ENROLLED") // "ENROLLED" | "DROPOUT" | "CERTIFIED" | "PLACED"
+  enrolledAt  DateTime         @default(now())
+  completedAt DateTime?
+  finalGrade  Float?
+
+  @@unique([cohortId, candidateId])
+}
+
+model Skill {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  category     String   // e.g. "Cloud Computing", "Data Science", "Software Engineering", "AI & ML"
+  taxonomyCode String   // e.g. "ESCO:2512.1", "ONET:15-1252.00"
+  description  String?
+  createdAt    DateTime @default(now())
+
+  candidateSkills  CandidateSkill[]
+  cohortSkills     CohortSkill[]
+  jobSkills        JobRequiredSkill[]
+}
+
+model CohortSkill {
+  id                String        @id @default(cuid())
+  cohortId          String
+  cohort            ProgramCohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  skillId           String
+  skill             Skill         @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  targetProficiency Int           @default(3) // 1 - 5
+
+  @@unique([cohortId, skillId])
+}
+
+model CandidateSkill {
+  id               String           @id @default(cuid())
+  candidateId      String
+  candidate        CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  skillId          String
+  skill            Skill            @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  proficiencyScore Int              @default(1) // 1 - 5 scale
+  assessmentScore  Float?
+  verified         Boolean          @default(false)
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([candidateId, skillId])
+}
+
+model JobRequirement {
+  id             String          @id @default(cuid())
+  employerId     String
+  employer       EmployerProfile @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  jobTitle       String
+  department     String?
+  location       String?
+  employmentType String          @default("FULL_TIME") // "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP"
+  minSalary      Float?
+  maxSalary      Float?
+  status         String          @default("OPEN") // "OPEN" | "CLOSED"
+  description    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  requiredSkills JobRequiredSkill[]
+}
+
+model JobRequiredSkill {
+  id             String         @id @default(cuid())
+  jobId          String
+  job            JobRequirement @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  skillId        String
+  skill          Skill          @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  minProficiency Int            @default(3) // 1 - 5
+  isMandatory    Boolean        @default(true)
+
+  @@unique([jobId, skillId])
+}
+
+model EmploymentOutcome {
+  id                 String           @id @default(cuid())
+  candidateId        String
+  candidate          CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  cohortId           String?
+  cohort             ProgramCohort?   @relation(fields: [cohortId], references: [id])
+  employerName       String
+  jobTitle           String
+  salary             Float
+  employmentType     String           @default("FULL_TIME")
+  startDate          DateTime
+  verifiedByEmployer Boolean          @default(false)
+  verificationStatus String           @default("PENDING") // "PENDING" | "VERIFIED" | "FLAGGED" | "REJECTED"
+  loggedAtInterval   String           @default("DAY_30") // "DAY_30" | "DAY_90" | "DAY_180" | "DAY_365"
+  promotionReceived  Boolean          @default(false)
+  notes              String?
+  verifiedAt         DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  verifications      PlacementVerification[]
+}
+
+model PlacementVerification {
+  id            String            @id @default(cuid())
+  outcomeId     String
+  outcome       EmploymentOutcome @relation(fields: [outcomeId], references: [id], onDelete: Cascade)
+  verifierUserId String
+  verifier      User              @relation(fields: [verifierUserId], references: [id], onDelete: Cascade)
+  status        String            @default("VERIFIED") // "VERIFIED" | "FLAGGED" | "REJECTED"
+  notes         String?
+  createdAt     DateTime          @default(now())
+}
+
+model AuditReport {
+  id          String   @id @default(cuid())
+  title       String
+  reportType  String   // "GOVERNMENT_COMPLIANCE" | "LONGITUDINAL_ROI" | "SKILL_GAP_SURVEY"
+  cohortId    String?
+  generatedBy String
+  generator   User     @relation(fields: [generatedBy], references: [id])
+  metricsJson String
+  createdAt   DateTime @default(now())
+}
