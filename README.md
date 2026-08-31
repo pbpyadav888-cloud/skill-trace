@@ -1,208 +1,70 @@
-<p align="center">
-  <img src="logo.svg" width="200px" align="center" alt="Zod logo" />
-  <h1 align="center">Zod</h1>
-  <p align="center">
-    TypeScript-first schema validation with static type inference
-    <br/>
-    by <a href="https://x.com/colinhacks">@colinhacks</a>
-  </p>
-</p>
-<br/>
+# VictoryVendor
 
-<p align="center">
-<a href="https://github.com/colinhacks/zod/actions?query=branch%3Amaster"><img src="https://github.com/colinhacks/zod/actions/workflows/test.yml/badge.svg?event=push&branch=master" alt="Zod CI status" /></a>
-<a href="https://opensource.org/licenses/MIT" rel="nofollow"><img src="https://img.shields.io/github/license/colinhacks/zod" alt="License"></a>
-<a href="https://www.npmjs.com/package/zod" rel="nofollow"><img src="https://img.shields.io/npm/dw/zod.svg" alt="npm"></a>
-<a href="https://discord.gg/KaSRdyX2vc" rel="nofollow"><img src="https://img.shields.io/discord/893487829802418277?label=Discord&logo=discord&logoColor=white" alt="discord server"></a>
-<a href="https://github.com/colinhacks/zod" rel="nofollow"><img src="https://img.shields.io/github/stars/colinhacks/zod" alt="stars"></a>
-</p>
+Vendored dependencies for Victory.
 
-<div align="center">
-  <a href="https://zod.dev/api">Docs</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://discord.gg/RcG33DQJdf">Discord</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://twitter.com/colinhacks">𝕏</a>
-  <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-  <a href="https://bsky.app/profile/zod.dev">Bluesky</a>
-  <br />
-</div>
+## Background
 
-<br/>
-<br/>
+D3 has released most of its libraries as ESM-only. This means that consumers in Node.js applications can no longer just `require()` anything with a d3 transitive dependency, including much of Victory.
 
-<h2 align="center">Featured sponsor: Jazz</h2>
+To help provide an easy path to folks still using CommonJS in their Node.js applications that consume Victory, we now provide this package to vendor in various d3-related packages.
 
-<div align="center">
-  <a href="https://jazz.tools/?utm_source=zod">
-    <picture width="85%" >
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/garden-co/jazz/938f6767e46cdfded60e50d99bf3b533f4809c68/homepage/homepage/public/Zod%20sponsor%20message.png">
-      <img alt="jazz logo" src="https://raw.githubusercontent.com/garden-co/jazz/938f6767e46cdfded60e50d99bf3b533f4809c68/homepage/homepage/public/Zod%20sponsor%20message.png" width="85%">
-    </picture>
-  </a>
-  <br/>
-  <p><sub>Learn more about <a target="_blank" rel="noopener noreferrer" href="mailto:sponsorship@colinhacks.com">featured sponsorships</a></sub></p>
-</div>
+## Packages
 
-<br/>
-<br/>
-<br/>
+We presently provide the following top-level libraries:
+<!-- cat packages/victory-vendor/package.json | egrep '"d3-' | egrep -o 'd3-[^"]*'| sor t-->
 
-### [Read the docs →](https://zod.dev/api)
+- d3-ease
+- d3-interpolate
+- d3-scale
+- d3-shape
+- d3-timer
 
-<br/>
-<br/>
+This is the total list of top and transitive libraries we vendor:
+<!-- ls packages/victory-vendor/lib-vendor | sort -->
 
-## What is Zod?
+- d3-array
+- d3-color
+- d3-ease
+- d3-format
+- d3-interpolate
+- d3-path
+- d3-scale
+- d3-shape
+- d3-time
+- d3-time-format
+- d3-timer
+- internmap
 
-Zod is a TypeScript-first validation library. Define a schema and parse some data with it. You'll get back a strongly typed, validated result.
+Note that this does _not_ include the following D3 libraries that still support CommonJS:
 
-```ts
-import * as z from "zod/v4";
+- d3-voronoi
 
-const User = z.object({
-  name: z.string(),
-});
+## How it works
 
-// some untrusted data...
-const input = {
-  /* stuff */
-};
+We provide two alternate paths and behaviors -- for ESM and CommonJS
 
-// the parsed result is validated and type safe!
-const data = User.parse(input);
+### ESM
 
-// so you can use it with confidence :)
-console.log(data.name);
+If you do a Node.js import like:
+
+```js
+import { interpolate } from "victory-vendor/d3-interpolate";
 ```
 
-<br/>
+under the hood it's going to just re-export and pass you through to `node_modules/d3-interpolate`, the **real** ESM library from D3.
 
-## Features
+### CommonJS
 
-- Zero external dependencies
-- Works in Node.js and all modern browsers
-- Tiny: `2kb` core bundle (gzipped)
-- Immutable API: methods return a new instance
-- Concise interface
-- Works with TypeScript and plain JS
-- Built-in JSON Schema conversion
-- Extensive ecosystem
+If you do a Node.js import like:
 
-<br/>
-
-## Installation
-
-```sh
-npm install zod
+```js
+const { interpolate } = require("victory-vendor/d3-interpolate");
 ```
 
-<br/>
+under the hood it's going to will go to an alternate path that contains the transpiled version of the underlying d3 library to be found at `victory-vendor/lib-vendor/d3-interpolate/**/*.js`. This futher has internally consistent import references to other `victory-vendor/lib-vendor/<pkg-name>` paths.
 
-## Basic usage
+Note that for some tooling (like Jest) that doesn't play well with `package.json:exports` routing to this CommonJS path, we **also** output a root file in the form of `victory-vendor/d3-interpolate.js`.
 
-Before you can do anything else, you need to define a schema. For the purposes of this guide, we'll use a simple object schema.
+## Licenses
 
-```ts
-import * as z from "zod/v4";
-
-const Player = z.object({
-  username: z.string(),
-  xp: z.number(),
-});
-```
-
-### Parsing data
-
-Given any Zod schema, use `.parse` to validate an input. If it's valid, Zod returns a strongly-typed _deep clone_ of the input.
-
-```ts
-Player.parse({ username: "billie", xp: 100 });
-// => returns { username: "billie", xp: 100 }
-```
-
-**Note** — If your schema uses certain asynchronous APIs like `async` [refinements](#refine) or [transforms](#transform), you'll need to use the `.parseAsync()` method instead.
-
-```ts
-const schema = z.string().refine(async (val) => val.length <= 8);
-
-await schema.parseAsync("hello");
-// => "hello"
-```
-
-### Handling errors
-
-When validation fails, the `.parse()` method will throw a `ZodError` instance with granular information about the validation issues.
-
-```ts
-try {
-  Player.parse({ username: 42, xp: "100" });
-} catch (err) {
-  if (err instanceof z.ZodError) {
-    err.issues;
-    /* [
-      {
-        expected: 'string',
-        code: 'invalid_type',
-        path: [ 'username' ],
-        message: 'Invalid input: expected string'
-      },
-      {
-        expected: 'number',
-        code: 'invalid_type',
-        path: [ 'xp' ],
-        message: 'Invalid input: expected number'
-      }
-    ] */
-  }
-}
-```
-
-To avoid a `try/catch` block, you can use the `.safeParse()` method to get back a plain result object containing either the successfully parsed data or a `ZodError`. The result type is a [discriminated union](https://www.typescriptlang.org/docs/handbook/2/narrowing.html#discriminated-unions), so you can handle both cases conveniently.
-
-```ts
-const result = Player.safeParse({ username: 42, xp: "100" });
-if (!result.success) {
-  result.error; // ZodError instance
-} else {
-  result.data; // { username: string; xp: number }
-}
-```
-
-**Note** — If your schema uses certain asynchronous APIs like `async` [refinements](#refine) or [transforms](#transform), you'll need to use the `.safeParseAsync()` method instead.
-
-```ts
-const schema = z.string().refine(async (val) => val.length <= 8);
-
-await schema.safeParseAsync("hello");
-// => { success: true; data: "hello" }
-```
-
-### Inferring types
-
-Zod infers a static type from your schema definitions. You can extract this type with the `z.infer<>` utility and use it however you like.
-
-```ts
-const Player = z.object({
-  username: z.string(),
-  xp: z.number(),
-});
-
-// extract the inferred type
-type Player = z.infer<typeof Player>;
-
-// use it in your code
-const player: Player = { username: "billie", xp: 100 };
-```
-
-In some cases, the input & output types of a schema can diverge. For instance, the `.transform()` API can convert the input from one type to another. In these cases, you can extract the input and output types independently:
-
-```ts
-const mySchema = z.string().transform((val) => val.length);
-
-type MySchemaIn = z.input<typeof mySchema>;
-// => string
-
-type MySchemaOut = z.output<typeof mySchema>; // equivalent to z.infer<typeof mySchema>
-// number
-```
+This project is released under the MIT license, but the vendor'ed in libraries include other licenses (e.g. ISC) that we enumerate in our `package.json:license` field.
